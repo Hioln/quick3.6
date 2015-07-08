@@ -245,7 +245,7 @@ class CCPluginLuaCompile(cocos.CCPlugin):
         self.parse_args(argv)
 
         # tips
-        cocos.Logging.warning(cocos.MultiLanguage.get_string('LUACOMPILE_WARNING_TIP_MSG'))
+        # cocos.Logging.warning(cocos.MultiLanguage.get_string('LUACOMPILE_WARNING_TIP_MSG'))
         # create output directory
         try:
             os.makedirs(self._dst_dir)
