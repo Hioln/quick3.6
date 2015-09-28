@@ -7853,6 +7853,8 @@ static int tolua_cocos2d_Mat4_decompose(lua_State* tolua_S)
             lua_pushstring(tolua_S, "translation");
             lua_pushnil(tolua_S);
             lua_rawset(tolua_S, -3);
+
+            return 1;
         }
         
         if (!lua_isnil(tolua_S, 2) && !lua_isnil(tolua_S, 3) && !lua_isnil(tolua_S, 4))
