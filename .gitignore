@@ -9,3 +9,9 @@
 
 xcschememanagement.plist
 contents.xcworkspacedata
+/tools/simulator/runtime
+Release.win32
+Debug.win32
+Release
+*.opensdf
+*.sdf
