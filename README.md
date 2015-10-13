@@ -1,12 +1,12 @@
 # quick-cocos2d-x v3.6
 
-*新功能
+新功能
 1.使用Luajit2.1支持arm64
 2.集成iosIAP
 3.CCSUIloader2完善中
 
 
-*使用方法
+使用方法
 1.安装 
 setup.py
 
