@@ -87,7 +87,10 @@ function CCSUILoader:generateUINode(jsonNode, parent)
 	uiNode:setSkewX(jsonNode.RotationSkewX or 0)
 	uiNode:setSkewY(jsonNode.RotationSkewY or 0)
 
-	-- uiNode:setVisible(jsonNode.visible) -- ccs havn't export visible attribute
+	if jsonNode.VisibleForFrame ~= nil and jsonNode.VisibleForFrame == false then
+		uiNode:setVisible(false)
+	end
+
 	if jsonNode.Scale then
 		uiNode:setScaleX((jsonNode.Scale.ScaleX or 1) * uiNode:getScaleX())
 		uiNode:setScaleY((jsonNode.Scale.ScaleY or 1) * uiNode:getScaleY())
@@ -104,32 +107,32 @@ function CCSUILoader:generateUINode(jsonNode, parent)
 
 	local children = jsonNode.Children
 	if children then
-	for i,v in ipairs(children) do
-		local childrenNode = self:generateUINode(v, uiNode)
-		if childrenNode then
-			if "ScrollView" == clsName then
-				emptyNode:addChild(childrenNode)
-			elseif "ListView" == clsName then
-				local item = uiNode:newItem()
-				item:addContent(childrenNode)
-				local size = childrenNode:getContentSize()
-				item:setItemSize(size.width, size.height)
-				uiNode:addItem(item)
+		for i,v in ipairs(children) do
+			local childrenNode = self:generateUINode(v, uiNode)
+			if childrenNode then
+				if "ScrollView" == clsName then
+					emptyNode:addChild(childrenNode)
+				elseif "ListView" == clsName then
+					local item = uiNode:newItem()
+					item:addContent(childrenNode)
+					local size = childrenNode:getContentSize()
+					item:setItemSize(size.width, size.height)
+					uiNode:addItem(item)
 
-				if "Button" == v.classname then
-					children:setTouchSwallowEnabled(false)
+					if "Button" == v.classname then
+						children:setTouchSwallowEnabled(false)
+					end
+				elseif "PageView" == clsName then
+					local item = uiNode:newItem()
+					childrenNode:setPosition(0, 0)
+					item:addChild(childrenNode)
+					item:setTag(10001)
+					uiNode:addItem(item)
+				else
+					uiNode:addChild(childrenNode)
 				end
-			elseif "PageView" == clsName then
-				local item = uiNode:newItem()
-				childrenNode:setPosition(0, 0)
-				item:addChild(childrenNode)
-				item:setTag(10001)
-				uiNode:addItem(item)
-			else
-				uiNode:addChild(childrenNode)
 			end
 		end
-	end
 	end
 
 	if "ListView" == clsName or "PageView" == clsName then
@@ -187,6 +190,33 @@ function CCSUILoader:createUINode(clsName, options, parent)
 	else
 		printInfo("CCSUILoader not support node:" .. clsName)
 	end
+
+	--Click,Touch 回调事件分发  2015/10/13 @tokimi @wland 
+	if options.CallBackType and options.CallBackName then
+		local callbackFuncName = options.CallBackName
+		if options.CallBackType == "Click" then
+			if clsName == "Button" then
+				node:onButtonClicked(function(events) 
+						app:dispatchEvent({name = callbackFuncName, events = events})
+					end)
+			elseif clsName == "CheckBox" then
+				node:onButtonSelectChanged(function(events) 
+						app:dispatchEvent({name = callbackFuncName, events = events})
+					end)
+			elseif clsName == "TextField" then
+				node:addEventListener(function(textfield, eventType) 
+						app:dispatchEvent({name = callbackFuncName, textfield = textfield, eventType = eventType})
+					end)
+			else
+				printInfo("[%s] Click callBack function unfinished ", clsName)
+			end
+		elseif options.CallBackType == "Touch" then
+			printInfo("[%s] Touch callBack function unfinished ", clsName)
+		end
+	end
+	
+	--Animation, AnimationList动画解析
+	--TODO
 
 	return node
 end
@@ -653,9 +683,11 @@ function CCSUILoader:createPanel(options)
 	-- background layer
 	if options.Scale9Enable then
 		if options.FileData and options.FileData.Path then
+			self:transResName(options.FileData)
 			local capInsets = cc.rect(options.Scale9OriginX, options.Scale9OriginY,
 						options.Scale9Width, options.Scale9Height)
-			local scale9sp = ccui.Scale9Sprite or cc.Scale9Sprite
+			local scale9sp = cc.Scale9Sprite or ccui.Scale9Sprite
+
 			if "Normal" == options.FileData.Type then
 				bgLayer = scale9sp:create(
 					capInsets, options.FileData.Path)
@@ -792,26 +824,53 @@ function CCSUILoader:prettyJson(json)
 			return
 		end
 
+		--设置根节点的size, 为了使用坐标请使用百分比方案，来适配
+		if not parent then
+			node.Size = node.Size or {}
+			node.Size.X = display.width
+			node.Size.Y = display.height
+		end	
+
+
+		--流式布局属性  (暂未完成，坐标请使用百分比方案)
+	    -- "HorizontalEdge": "BothEdge", "RightEdge", "LeftEdge" --与父节点水平固定距离
+	    -- "VerticalEdge": "BothEdge", "TopEdge", "BottomEdge"   --与父节点水平固定距离
+	    -- "LeftMargin": 0.0,						             --与父节点左边固定比例
+	    -- "RightMargin": 0.0,                                   --与父节点右边固定比例
+	    -- "TopMargin": 0.0,                                     --与父节点上边固定比例
+	    -- "BottomMargin": 0.0,                                  --与父节点下边固定比例
+
+
 		-- 调整百分比的子节点宽高,位置
 		if node.PositionPercentXEnabled then
 			node.Position = node.Position or {}
-			node.Position.X = parent.Size.X * node.PerPosition.X
-			node.Position.Y = parent.Size.Y * node.PerPosition.Y
+			node.Position.X = parent.Size.X * node.PrePosition.X 
+			node.Position.Y = parent.Size.Y * node.PrePosition.Y
 		end
 		if node.PercentWidthEnable then
 			node.Size = node.Size or {}
 			node.Size.X = parent.Size.X * node.PreSize.X
 			node.Size.Y = parent.Size.Y * node.PreSize.Y
 		end
-		node.AnchorPoint = node.AnchorPoint or {} 
-		if not node.children then
+		
+		node.AnchorPoint = node.AnchorPoint or {}
+		--锚点校正(Button BUG临时解决方案)
+		if parent and parent.ctype == "ButtonObjectData" then
+			node.Position.X = node.Position.X - parent.Size.X * (parent.AnchorPoint.ScaleX or 0)
+			node.Position.Y = node.Position.Y - parent.Size.Y * (parent.AnchorPoint.ScaleY or 0)
+		else
+			--COCOS2.1版本，根节点无此属性
+		end
+		
+
+		if not node.Children then
 			return
 		end
-		if 0 == #node.children then
+		if 0 == #node.Children then
 			return
 		end
 
-		for i,v in ipairs(node.children) do
+		for i,v in ipairs(node.Children) do
 			prettyNode(v, node)
 		end
 	end
