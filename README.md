@@ -1,4 +1,6 @@
- #quick-cocos2d-x v3.6
+
+quick-cocos2d-x v3.6
+==================
 
  
 ## 使用指南
