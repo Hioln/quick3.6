@@ -209,6 +209,26 @@ function Node:zorder(z)
     return self
 end
 
+-- start --
+
+--------------------------------
+-- 设置当前结点AnchorPoint
+-- @function [parent=#Node] apoint
+-- @param mixed x x锚点或cc.p表
+-- @param number y y锚点
+-- @return Node#Node  当前结点
+
+-- end --
+
+function Node:apoint(x, y)
+    if type(x) == "table" then
+        self:setAnchorPoint(x)
+    else
+        self:setAnchorPoint(cc.p(x, y))
+    end
+
+    return self
+end
 
 --------------------------------
 -- @module Sprite

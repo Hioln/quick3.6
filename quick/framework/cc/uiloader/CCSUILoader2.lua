@@ -4,22 +4,27 @@
 local UILoaderUtilitys = import(".UILoaderUtilitys")
 local CCSUILoader = class("CCSUILoader")
 
+
+-- params : editbox
 function CCSUILoader:load(json, params)
 	if params then
-		self.bUseEditBox = params.bUseEditBox or false
-	else
-		self.bUseEditBox = false
-	end
+		if params.editBox and params.editBox.imageNormal then
+			self.editBox = params.editBox
+		else
 
-	if cc.bPlugin_ and self.bUseEditBox then
-		-- CCEditbox(C++ widget) not support no background
-		self.bUseEditBox = false
+		end
 
-		print("Error! not support CCEditbox in cocostudio layout file")
+		--预加载标识，若有此标识，则不再调用UILoaderUtilitys的LoadTexture
+		if params.preLoadTex then
+			self.preLoadTex = true
+		end
 	end
 
 	self.texturesPng = json.texturesPng
 	self:loadTexture(json)
+
+	--记录版本号
+	self.uiloaderVersion = json.Version
 
 	local node, bAdaptScreen = self:parserJson(json)
 	self.texturesPng = nil
@@ -66,6 +71,11 @@ function CCSUILoader:generateUINode(jsonNode, parent)
 	end
 
 	uiNode.name = jsonNode.Name or "unknow node"
+	
+	-- setName，方便通过名字获取（子）节点操作  2015/10/26 @tokimi
+	if jsonNode.Name then
+		uiNode:setName(jsonNode.Name)
+	end
 
 	--for seek
 	uiNode.subChildren = {}
@@ -84,8 +94,14 @@ function CCSUILoader:generateUINode(jsonNode, parent)
 
 	uiNode:setTag(jsonNode.Tag or 0)
 	uiNode:setRotation(jsonNode.Rotation or 0)
-	uiNode:setSkewX(jsonNode.RotationSkewX or 0)
-	uiNode:setSkewY(jsonNode.RotationSkewY or 0)
+
+	-- cocosbuilder 2.1版本中旋转时会导到倾斜值，所以临时屏掉2.1版本中调用倾斜的接口
+	-- 2015/10/28
+	if self.uiloaderVersion == "2.1.0.0" then
+	else
+		uiNode:setSkewX(jsonNode.RotationSkewX or 0)
+		uiNode:setSkewY(jsonNode.RotationSkewY or 0)
+	end
 
 	if jsonNode.VisibleForFrame ~= nil and jsonNode.VisibleForFrame == false then
 		uiNode:setVisible(false)
@@ -174,7 +190,7 @@ function CCSUILoader:createUINode(clsName, options, parent)
     elseif clsName == "LabelAtlas" then
     	node = self:createLabelAtlas(options)
 	elseif clsName == "TextField" then
-		node = self:createEditBox(options)
+		node = self:createTextField(options)
 	elseif clsName == "Panel" then
 		node = self:createPanel(options)
 	elseif clsName == "ScrollView" then
@@ -193,6 +209,7 @@ function CCSUILoader:createUINode(clsName, options, parent)
 
 	--Click,Touch 回调事件分发  2015/10/13 @tokimi @wland 
 	if options.CallBackType and options.CallBackName then
+		node.CallBackName = options.CallBackName
 		local callbackFuncName = options.CallBackName
 		if options.CallBackType == "Click" then
 			if clsName == "Button" then
@@ -204,21 +221,61 @@ function CCSUILoader:createUINode(clsName, options, parent)
 						app:dispatchEvent({name = callbackFuncName, events = events})
 					end)
 			elseif clsName == "TextField" then
-				node:addEventListener(function(textfield, eventType) 
-						app:dispatchEvent({name = callbackFuncName, textfield = textfield, eventType = eventType})
-					end)
+				if self.editBox then
+					node:registerScriptEditBoxHandler(function(eventType, eventHandler)
+							app:dispatchEvent({name = callbackFuncName, eventType = eventType, eventHandler = eventHandler})
+						end)
+				else --ccs textfield
+					node:addEventListener(function(eventHandler, eventType) 
+							app:dispatchEvent({name = callbackFuncName, eventHandler = eventHandler, eventType = eventType})
+						end)
+
+				end
 			else
 				printInfo("[%s] Click callBack function unfinished ", clsName)
 			end
 		elseif options.CallBackType == "Touch" then
-			printInfo("[%s] Touch callBack function unfinished ", clsName)
+			if clsName == "ImageView" then
+				node:addNodeEventListener(cc.NODE_TOUCH_EVENT, function(events) 
+							app:dispatchEvent({name = callbackFuncName, events = events})
+							return true
+						end)
+				node:setTouchEnabled(true)
+			else
+				printInfo("[%s] Touch callBack function unfinished ", clsName)
+			end
+		elseif options.CallBackType == "Event" then
+			if clsName == "TextField" then
+				if self.editBox then
+					node:registerScriptEditBoxHandler(function(eventType, eventHandler) 
+							app:dispatchEvent({name = callbackFuncName, eventType = eventType, eventHandler = eventHandler})
+						end)
+				else --ccs textfield
+					node:addEventListener(function(eventHandler, eventType) 
+							app:dispatchEvent({name = callbackFuncName, eventHandler = eventHandler, eventType = eventType})
+						end)
+				end
+			else
+				printInfo("[%s] Event callBack function unfinished ", clsName)
+			end
 		end
 	end
 	
 	--Animation, AnimationList动画解析
-	--TODO
+	local Anim = self:parserAnimation(json)
 
-	return node
+	--粒子解析
+	local particle = self:parserParticle(json)
+
+	return node 
+end
+
+function CCSUILoader:parserAnimation(json)
+	return true
+end
+
+function CCSUILoader:parserParticle(json)
+	return true
 end
 
 function CCSUILoader:getChildOptionJson(json)
@@ -360,7 +417,11 @@ function CCSUILoader:transResName(fileData)
 		return name
 	end
 
-	UILoaderUtilitys.loadTexture(fileData.Plist)
+	--若有预先加载标识，则不再调loadTexture
+	if not self.preLoadTex then
+		UILoaderUtilitys.loadTexture(fileData.Plist)
+	end
+
 	if "PlistSubImage" == fileData.Type then
 		return "#" .. name
 	else
@@ -462,7 +523,7 @@ function CCSUILoader:createButton(options)
 			cc.ui.UILabel.new({text = options.ButtonText,
 				size = options.FontSize,
 				font = options.FontResource and options.FontResource.Path,
-				color = cc.c3b(options.TextColor.R, options.TextColor.G, options.TextColor.B)}))
+				color = cc.c3b(options.TextColor.R or 255, options.TextColor.G or 255, options.TextColor.B or 255)}))
 	end
 	if options.Size then
 		node:setButtonSize(options.Size.X, options.Size.Y)
@@ -602,25 +663,29 @@ function CCSUILoader:createLabelAtlas(options)
 	return labelAtlas
 end
 
-function CCSUILoader:createEditBox(options)
+function CCSUILoader:createTextField(options)
 	local editBox
 
-	if self.bUseEditBox then
+	if self.editBox then
 		editBox = cc.ui.UIInput.new({
 			UIInputType = 1,
-	        size = cc.size(options.width, options.height)
+	        size = cc.size(options.Size.X, options.Size.Y),
+       		imageNormal = self.editBox.imageNormal,
+       		imagePressed = self.editBox.imagePressed or self.editBox.imageNormal,
+       		imageDisabled = self.editBox.imageDisabled or self.editBox.imageNormal,
 	    	})
-	    editBox:setPlaceHolder(options.placeHolder)
-	    editBox:setFontName(options.fontName)
-	    editBox:setFontSize(options.fontSize or 20)
-	    editBox:setText(options.text)
+	    editBox:setPlaceHolder(options.PlaceHolderText)
+	    -- 添加默认FontName " ", 不设置的话，SetText不会生效 
+	    editBox:setFontName(options.FontResource and options.FontResource.Path or " ")
+	    editBox:setFontSize(options.FontSize or 20)
+	    editBox:setText(options.LabelText)
 	    if options.passwordEnable then
 	    	editBox:setInputFlag(cc.EDITBOX_INPUT_FLAG_PASSWORD)
 		end
 		if options.maxLengthEnable then
-			editBox:setMaxLength(options.maxLength)
+			editBox:setMaxLength(options.MaxLengthText)
 		end
-		editBox:setPosition(options.x, options.y)
+		editBox:setPosition(options.Position.X, options.Position.Y)
 	else
 		editBox = cc.ui.UIInput.new({
 		UIInputType = 2,
@@ -732,8 +797,11 @@ function CCSUILoader:createPanel(options)
 end
 
 function CCSUILoader:createScrollView(options)
+	-- 修正ScrollView显示区域及位置 2015/10/20 @tokimi
+	-- local params =
+	-- 	{viewRect = cc.rect(options.Position.X, options.Position.Y, options.Size.X, options.Size.Y)}
 	local params =
-		{viewRect = cc.rect(options.Position.X, options.Position.Y, options.Size.X, options.Size.Y)}
+		{viewRect = cc.rect(0, 0, options.Size.X, options.Size.Y)}
 
 	if 1 == options.ComboBoxIndex then
 		-- single color
@@ -764,12 +832,22 @@ function CCSUILoader:createScrollView(options)
 	node:setDirection(dir)
 	node:setBounceable(options.IsBounceEnabled or false)
 
+	-- 修正ScrollView显示区域及位置 2015/10/20 @tokimi
+	local nsize = options.Size or {}
+	local npos  = options.Position or {}
+	local napoint = options.AnchorPoint or {}
+	node:setPositionX((npos.X or 0) - (nsize.X or 0) * (napoint.ScaleX or 0))
+	node:setPositionY((npos.Y or 0) - (nsize.Y or 0) * (napoint.ScaleY or 0))
+
 	return node
 end
 
 function CCSUILoader:createListView(options)
+	-- 修正ListView显示区域及位置 2015/10/20 @tokimi
+	-- local params =
+	--	{viewRect = cc.rect(options.Position.X, options.Position.Y, options.Size.X, options.Size.Y)}
 	local params =
-		{viewRect = cc.rect(options.Position.X, options.Position.Y, options.Size.X, options.Size.Y)}
+		{viewRect = cc.rect(0, 0, options.Size.X, options.Size.Y)}
 
 	if 1 == options.ComboBoxIndex then
 		-- single color
@@ -793,6 +871,13 @@ function CCSUILoader:createListView(options)
 	end
 	node:setDirection(dir)
 	node:setBounceable(options.IsBounceEnabled or false)
+
+	-- 修正ListView显示区域及位置 2015/10/20 @tokimi
+	local nsize = options.Size or {}
+	local npos  = options.Position or {}
+	local napoint = options.AnchorPoint or {}
+	node:setPositionX((npos.X or 0) - (nsize.X or 0) * (napoint.ScaleX or 0))
+	node:setPositionY((npos.Y or 0) - (nsize.Y or 0) * (napoint.ScaleY or 0))
 
 	return node
 end

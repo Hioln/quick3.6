@@ -483,6 +483,8 @@ public:
     
     /** Set the body is allow rotation or not */
     void setRotationEnable(bool enable);
+
+	void setRotation(float rotation);
     
     /** Whether this physics body is affected by the physics world’s gravitational force. */
     inline bool isGravityEnabled() const { return _gravityEnabled; }
@@ -510,7 +512,6 @@ protected:
     bool init();
     
     virtual void setPosition(const Vec2& position);
-    virtual void setRotation(float rotation);
     virtual void setScale(float scaleX, float scaleY);
     
     void update(float delta);

@@ -74,6 +74,10 @@ function UIInput:ctor(options)
     -- make editbox and textfield have same getText function
     if 2 == options.UIInputType then
         self.getText = self.getStringValue
+    else
+        --兼容ccs方法
+        self.setString = self.setText
+        self.getString = self.getText
     end
 
     self.args_ = options
@@ -151,7 +155,7 @@ end
 
 ]]
 function UIInput.newEditBox_(params)
-    local imageNormal = params.image
+    local imageNormal = params.imageNormal
     local imagePressed = params.imagePressed
     local imageDisabled = params.imageDisabled
 
@@ -165,12 +169,14 @@ function UIInput.newEditBox_(params)
         imageDisabled = display.newScale9Sprite(imageDisabled)
     end
 
-    local editboxCls
-    if cc.bPlugin_ then
-        editboxCls = ccui.EditBox
-    else
-        editboxCls = cc.EditBox
-    end
+    local editboxCls = cc.EditBox
+
+    -- if cc.bPlugin_ then
+    --     editboxCls = ccui.EditBox
+    -- else
+    --     editboxCls = cc.EditBox
+    -- end
+    
     local editbox = editboxCls:create(params.size, imageNormal, imagePressed, imageDisabled)
 
     if editbox then
