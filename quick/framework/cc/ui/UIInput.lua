@@ -169,15 +169,7 @@ function UIInput.newEditBox_(params)
         imageDisabled = display.newScale9Sprite(imageDisabled)
     end
 
-    local editboxCls = cc.EditBox
-
-    -- if cc.bPlugin_ then
-    --     editboxCls = ccui.EditBox
-    -- else
-    --     editboxCls = cc.EditBox
-    -- end
-    
-    local editbox = editboxCls:create(params.size, imageNormal, imagePressed, imageDisabled)
+    local editbox = ccui.EditBox:create(params.size, imageNormal, imagePressed, imageDisabled)
 
     if editbox then
         if params.listener then

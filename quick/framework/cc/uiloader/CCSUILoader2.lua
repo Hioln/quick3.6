@@ -5,7 +5,11 @@ local UILoaderUtilitys = import(".UILoaderUtilitys")
 local CCSUILoader = class("CCSUILoader")
 
 
--- params : editbox
+-- params : 
+--editbox{} 
+--有此参数时，editbox模式为弹出式输入框
+--无此参数，editbox UIInputType=2 不弹出式输入框
+
 function CCSUILoader:load(json, params)
 	if params then
 		if params.editBox and params.editBox.imageNormal then
@@ -209,8 +213,8 @@ function CCSUILoader:createUINode(clsName, options, parent)
 
 	--Click,Touch 回调事件分发  2015/10/13 @tokimi @wland 
 	if options.CallBackType and options.CallBackName then
-		node.CallBackName = options.CallBackName
-		local callbackFuncName = options.CallBackName
+		node.CallBackName = string.upper(options.CallBackName)
+		local callbackFuncName = node.CallBackName
 		if options.CallBackType == "Click" then
 			if clsName == "Button" then
 				node:onButtonClicked(function(events) 
@@ -574,7 +578,7 @@ function CCSUILoader:createSlider(options)
 	end
 	node:align(self:getAnchorType(options.AnchorPoint.ScaleX or 0, options.AnchorPoint.ScaleY or 0),
 		options.Position.X or 0, options.Position.Y or 0)
-    node:setSliderValue(options.PercentInfo)
+    node:setSliderValue(options.PercentInfo or 0)
 
 	return node
 end
