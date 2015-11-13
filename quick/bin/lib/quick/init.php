@@ -11,6 +11,7 @@ if (DS == '/')
 else
 {
     define('LUAJIT_BIN', BIN_DIR . '\\win32\\luajit.exe');
+    define('LUAJIT64_BIN', BIN_DIR . '\\win32\\luajit.exe');
 }
 
 // helper functions
@@ -162,13 +163,23 @@ function getScriptFileBytecodes($bit, $path, $tmpfile)
     @mkdir(pathinfo($tmpfile, PATHINFO_DIRNAME), 0777, true);
 
 	$bin = null;
-	if ($bit == '32') {
+
+    if ($bit == '32') {
 		$bin = LUAJIT_BIN;
-	} else {
+	} elseif ($bit == '64') {
 		$bin = LUAJIT64_BIN;
 	}
-	$command = sprintf('%s -b "%s" "%s"', $bin, $path, $tmpfile);
-    passthru($command);
+
+
+    if ($bit == 'off'){
+        copy($path, $tmpfile);
+    }
+    else {
+        $command = sprintf('%s -b "%s" "%s"', $bin, $path, $tmpfile);
+        passthru($command);
+    }
+
+	
 
     if (!file_exists($tmpfile))
     {

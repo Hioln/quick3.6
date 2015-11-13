@@ -112,16 +112,11 @@ class ScriptsCompiler
             return false;
         }
 
-        if ($this->config['bit'] != '32' && $this->config['bit'] != '64')
+        if ($this->config['bit'] != '32' && $this->config['bit'] != '64' && $this->config['bit'] != 'off')
         {
-            print("ERR: Invalid bit mode only support 32 or 64\n");
+            print("ERR: Invalid bit mode only support 32 or 64, or off  bytecodes\n");
             return false;
         }
-		if (DS == '\\' && $this->config['bit'] == '64')
-		{
-            print("ERR: bit mode 64 only support on Mac\n");
-            return false;
-		}
 
         if (!$this->config['quiet'])
         {
