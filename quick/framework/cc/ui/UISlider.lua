@@ -120,6 +120,8 @@ function UISlider:ctor(direction, images, options)
 
     self.buttonRotation_ = 0
     self.barSprite_ = nil
+    self.clipnode = nil     --new added
+    self.clipRect = nil     --new added
     self.buttonSprite_ = nil
     self.currentBarImage_ = nil
     self.currentButtonImage_ = nil
@@ -157,6 +159,7 @@ function UISlider:setSliderSize(width, height)
             self:setContentSizeAndScale_(self.barSprite_, cc.size(self.scale9Size_[1], self.scale9Size_[2]))
             self:setContentSizeAndScale_(self.barfgSprite_, cc.size(self.scale9Size_[1], self.scale9Size_[2]))
         end
+        self:setClipNodeRect_()      -- new added
     end
     return self
 end
@@ -340,7 +343,7 @@ function UISlider:onSliderStateChanged(callback)
 end
 
 function UISlider:onTouch_(event, x, y)
-    if event == "began" then
+    if event == "began" then   
         if not self:checkTouchInButton_(x, y) then return false end
         local posx, posy = self.buttonSprite_:getPosition()
         local buttonPosition = self:convertToWorldSpace(cc.p(posx, posy))
@@ -383,7 +386,7 @@ function UISlider:onTouch_(event, x, y)
         end
     end
 
-    self:setSliderValue(offset * (self.max_ - self.min_) + self.min_)
+   self:setSliderValue(offset * (self.max_ - self.min_) + self.min_)
 
     if event ~= "moved" and self.fsm_:canDoEvent("release") then
         self.fsm_:doEvent("release")
@@ -404,10 +407,10 @@ function UISlider:updateButtonPosition_()
     if not self.barSprite_ or not self.buttonSprite_ then return end
 
     local x, y = 0, 0
+    local buttonSize = self.buttonSprite_:getContentSize()
     local barSize = self.barSprite_:getContentSize()
     barSize.width = barSize.width * self.barSprite_:getScaleX()
     barSize.height = barSize.height * self.barSprite_:getScaleY()
-    local buttonSize = self.buttonSprite_:getContentSize()
     local offset = (self.value_ - self.min_) / (self.max_ - self.min_)
     local ap = self:getAnchorPoint()
 
@@ -418,22 +421,16 @@ function UISlider:updateButtonPosition_()
         self.buttonPositionRange_.min = x + buttonSize.width / 2
         self.buttonPositionRange_.max = self.buttonPositionRange_.min + self.buttonPositionRange_.length
         
-        local lbPos = cc.p(0, 0)
-        if self.barfgSprite_ and self.scale9Size_ then
-            self:setContentSizeAndScale_(self.barfgSprite_, cc.size(offset * self.buttonPositionRange_.length, self.scale9Size_[2]))
-            lbPos = self:getbgSpriteLeftBottomPoint_()
-        end
         if self.direction_ == display.LEFT_TO_RIGHT then
             x = self.buttonPositionRange_.min + offset * self.buttonPositionRange_.length
-        else
-            if self.barfgSprite_ and self.scale9Size_ then
-                lbPos.x = lbPos.x + (1-offset)*self.buttonPositionRange_.length
+            if self.clipnode then
+                self.clipnode:getStencil():setPosition(x - barSize.width/2, 0)
             end
+        else
             x = self.buttonPositionRange_.min + (1 - offset) * self.buttonPositionRange_.length
+            self.clipnode:getStencil():setPosition(x, 0)
         end
-        if self.barfgSprite_ and self.scale9Size_ then
-            self.barfgSprite_:setPosition(lbPos)
-        end
+
     else
         x = x - barSize.width * (0.5 - ap.x)
         y = y - barSize.height * ap.y
@@ -441,26 +438,18 @@ function UISlider:updateButtonPosition_()
         self.buttonPositionRange_.min = y + buttonSize.height / 2
         self.buttonPositionRange_.max = self.buttonPositionRange_.min + self.buttonPositionRange_.length
 
-        local lbPos = cc.p(0, 0)
-        if self.barfgSprite_ and self.scale9Size_ then
-            self:setContentSizeAndScale_(self.barfgSprite_, cc.size(self.scale9Size_[1], offset * self.buttonPositionRange_.length))
-            lbPos = self:getbgSpriteLeftBottomPoint_()
-        end
         if self.direction_ == display.TOP_TO_BOTTOM then
             y = self.buttonPositionRange_.min + (1 - offset) * self.buttonPositionRange_.length
-            if self.barfgSprite_ and self.scale9Size_ then
-                lbPos.y = lbPos.y + (1-offset)*self.buttonPositionRange_.length
+            if self.clipnode then
+                 self.clipnode:getStencil():setPosition(0, y)                       -- been changed
             end
         else
             y = self.buttonPositionRange_.min + offset * self.buttonPositionRange_.length
-            if self.barfgSprite_ then
+            if self.clipnode then
+                 self.clipnode:getStencil():setPosition(0, y - barSize.width/2)     -- been changed
             end
         end
-        if self.barfgSprite_ and self.scale9Size_ then
-            self.barfgSprite_:setPosition(lbPos)
-        end
     end
-
     self.buttonSprite_:setPosition(x, y)
 end
 
@@ -506,7 +495,7 @@ function UISlider:updateImage_()
                     self:setContentSizeAndScale_(self.barSprite_, cc.size(self.scale9Size_[1], self.scale9Size_[2]))
                 end
             end
-            self:addChild(self.barSprite_, UISlider.BAR_ZORDER)
+            self:addChild(self.barSprite_)
         end
 
         self.barSprite_:setAnchorPoint(self:getAnchorPoint())
@@ -524,9 +513,14 @@ function UISlider:updateImage_()
                 self.barfgSprite_ = display.newSprite(barfgImage)
             end
 
-            self:addChild(self.barfgSprite_, UISlider.BARFG_ZORDER)
-            self.barfgSprite_:setAnchorPoint(cc.p(0, 0))
-            self.barfgSprite_:setPosition(self.barSprite_:getPosition())
+            -- been changed, added a clip node
+            self.clipRect = display.newRect(cc.rect(-self.barfgSprite_:getBoundingBox().width / 2, -self.barfgSprite_:getBoundingBox().height / 2,
+                                                self.barfgSprite_:getBoundingBox().width, self.barfgSprite_:getBoundingBox().height),
+                                    {fillColor = cc.c4f(1,0,0,1), borderColor = cc.c4f(1,0,0,1), borderWidth = 5})
+            self.clipnode = cc.ClippingNode:create()
+                :setStencil(self.clipRect)
+                :addTo(self, UISlider.BARFG_ZORDER)
+                :addChild(self.barfgSprite_)
         end
     end
 
@@ -588,8 +582,17 @@ function UISlider:setContentSizeAndScale_(node, s)
     scaleY = s.height/size.height
     node:setScaleX(scaleX)
     node:setScaleY(scaleY)
+    self:updateButtonPosition_()    --new added
 end
 
+function UISlider:setClipNodeRect_()
+    local fgSize = self.barfgSprite_:getContentSize()
+    local fgWidth = fgSize.width * self.barfgSprite_:getScaleX()
+    local fgHeight = fgSize.height * self.barfgSprite_:getScaleY()
+    self.clipRect = display.newRect(cc.rect(-fgWidth / 2, -fgHeight / 2, fgWidth, fgHeight),{fillColor = cc.c4f(1,0,0,1), borderColor = cc.c4f(1,0,0,1), borderWidth = 5})
+    self.clipnode:setStencil(self.clipRect)
+    self:updateButtonPosition_()
+end
 
 function UISlider:createCloneInstance_()
     return UISlider.new(unpack(self.args_))

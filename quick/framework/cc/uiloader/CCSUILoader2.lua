@@ -522,6 +522,7 @@ function CCSUILoader:createButton(options)
 		node:setCascadeOpacityEnabled(true)
 		node:setOpacity(options.Alpha)
 	end
+
 	if options.ButtonText then
 		node:setButtonLabel(
 			cc.ui.UILabel.new({text = options.ButtonText,
