@@ -1563,6 +1563,7 @@
 				);
 				PRODUCT_NAME = "quick_libs IOS";
 				SDKROOT = iphoneos8.1;
+				SKIP_INSTALL = YES;
 				USER_HEADER_SEARCH_PATHS = "$(inherited) $(SRCROOT)/../../../external/curl/include/ios \"$(SRCROOT)/../../../external/lua/luajit/include\"";
 				VALID_ARCHS = "$(ARCHS_STANDARD)";
 			};
@@ -1581,6 +1582,7 @@
 				);
 				PRODUCT_NAME = "quick_libs IOS";
 				SDKROOT = iphoneos8.1;
+				SKIP_INSTALL = YES;
 				USER_HEADER_SEARCH_PATHS = "$(inherited) $(SRCROOT)/../../../external/curl/include/ios \"$(SRCROOT)/../../../external/lua/luajit/include\"";
 				VALID_ARCHS = "$(ARCHS_STANDARD)";
 			};
